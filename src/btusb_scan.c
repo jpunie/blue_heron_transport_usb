@@ -19,8 +19,11 @@
 
 static bool possible_bt_device(const struct libusb_device_descriptor *desc)
 {
-    // Standalone BT device
-    if (desc->bDeviceClass == LIBUSB_CLASS_WIRELESS &&
+    // warn("Device bus ID %04x:%04x -> class: %d, subclass: %d, protocol: %d #",
+        // desc->idVendor, desc->idProduct, desc->bDeviceClass, desc->bDeviceSubClass, desc->bDeviceProtocol);
+   
+    // Standalone BT device and Broadcom Corp BCM20702A0 BT device
+    if ((desc->bDeviceClass == LIBUSB_CLASS_WIRELESS || desc->bDeviceClass == LIBUSB_CLASS_VENDOR_SPEC) &&
         desc->bDeviceSubClass == 1 /* Radio Frequency */ &&
         desc->bDeviceProtocol == 1 /* Bluetooth */)
         return true;
@@ -29,10 +32,6 @@ static bool possible_bt_device(const struct libusb_device_descriptor *desc)
     if (desc->bDeviceClass == 239 /* Miscellaneous Device */ &&
         desc->bDeviceSubClass == 2 /*  */ &&
         desc->bDeviceProtocol == 1 /* Interface Association */)
-        return true;
-
-    // Vendor-specific. Maybe??
-    if (desc->bDeviceClass == 255 /* Vendor-specific */)
         return true;
 
     return false;
@@ -51,19 +50,27 @@ static bool has_expected_endpoints(const struct libusb_interface_descriptor *ide
     for (int i = 0; i < idesc->bNumEndpoints; i++) {
         switch (idesc->endpoint[i].bEndpointAddress) {
         case 0x81:
+            // warn(" has_interrupt_in ");
             has_interrupt_in = true;
             break;
         case 0x02:
+            // warn(" has_bulk_out ");
             has_bulk_out = true;
             break;
         case 0x82:
+            // warn(" has_bulk_in ");
             has_bulk_in = true;
             break;
         default:
             break;
         }
     }
-    return has_interrupt_in && has_bulk_in && has_bulk_out;
+
+    bool res = has_interrupt_in && has_bulk_in && has_bulk_out;
+    // if (!res) {
+    //     warn(" Doens't have all the endpoints required! #");
+    // }
+    return res;
 }
 
 static int find_bt_interface(struct libusb_device *dev)
@@ -74,13 +81,13 @@ static int find_bt_interface(struct libusb_device *dev)
             const struct libusb_interface *iface = &config->interface[j];
             const struct libusb_interface_descriptor *idesc = iface->altsetting;
 
-            if (idesc->bInterfaceClass == LIBUSB_CLASS_WIRELESS &&
+    // warn(" Interface class: %d, subclass: %d, protocol: %d, endpoints: %d #",
+    //     idesc->bInterfaceClass, idesc->bInterfaceSubClass, idesc->bInterfaceProtocol, idesc->bNumEndpoints);
+
+            if ((idesc->bInterfaceClass == LIBUSB_CLASS_WIRELESS || idesc->bInterfaceClass == LIBUSB_CLASS_VENDOR_SPEC)&&
                 idesc->bInterfaceSubClass == 1 &&
                 idesc->bInterfaceProtocol == 1 &&
                 has_expected_endpoints(idesc)) {
-                return j;
-            } else if (idesc->bInterfaceClass == 255 &&
-                       has_expected_endpoints(idesc)) {
                 return j;
             }
         }
@@ -109,6 +116,10 @@ int btusb_find_bt_device(libusb_device **device, int *interface, acceptable_devi
         if (libusb_get_device_descriptor(dev, &desc) != LIBUSB_SUCCESS ||
             !possible_bt_device(&desc))
             continue;
+        
+        // warn("Checking device at bus %d, device %d: ID %04x:%04x",
+        //             libusb_get_bus_number(dev), libusb_get_device_address(dev), desc.idVendor, desc.idProduct);
+    
 
         *interface = find_bt_interface(dev);
 
