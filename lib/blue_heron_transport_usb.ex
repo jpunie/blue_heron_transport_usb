@@ -38,6 +38,7 @@ defmodule BlueHeronTransportUSB do
 
   @impl GenServer
   def init({%__MODULE__{} = config, recv}) do
+    try do
     port =
       Port.open({:spawn_executable, port_executable()}, [
         {:args, open_args(config)},
@@ -47,6 +48,10 @@ defmodule BlueHeronTransportUSB do
       ])
 
     {:ok, %{port: port, recv: recv}}
+      rescue
+        error ->
+          {:error, error}
+      end
   end
 
   defp open_args(%__MODULE__{vid: vid, pid: pid}) when vid > 0 and pid > 0 do

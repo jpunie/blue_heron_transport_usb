@@ -65,7 +65,8 @@ static void event_callback(struct libusb_transfer *transfer)
         break;
 
     case LIBUSB_TRANSFER_NO_DEVICE:
-        fatal("Device removed");
+        warn("Device removed");
+        break;
 
     default:
         debug("unexpected status. endpoint %x, status %x, length %u",
@@ -75,7 +76,7 @@ static void event_callback(struct libusb_transfer *transfer)
 
     int rc = libusb_submit_transfer(transfer);
     if (rc != LIBUSB_SUCCESS)
-        fatal("libusb_submit_transfer failed: rc=%d", rc);
+        warn("libusb_submit_transfer failed: rc=%d", rc);
 }
 
 static void acl_in_callback(struct libusb_transfer *transfer)
@@ -91,7 +92,8 @@ static void acl_in_callback(struct libusb_transfer *transfer)
         break;
 
     case LIBUSB_TRANSFER_NO_DEVICE:
-        fatal("Device removed");
+        warn("Device removed");
+        break;
 
     default:
         debug("unexpected status. endpoint %x, status %x, length %u",
@@ -101,7 +103,7 @@ static void acl_in_callback(struct libusb_transfer *transfer)
 
     int rc = libusb_submit_transfer(transfer);
     if (rc != LIBUSB_SUCCESS)
-        fatal("libusb_submit_transfer failed: rc=%d", rc);
+        warn("libusb_submit_transfer failed: rc=%d", rc);
 }
 
 static void command_out_callback(struct libusb_transfer *transfer)
@@ -117,11 +119,12 @@ static void command_out_callback(struct libusb_transfer *transfer)
 
         int rc = libusb_submit_transfer(transfer);
         if (rc != LIBUSB_SUCCESS)
-            fatal("libusb_submit_transfer failed to submit command: rc=%d", rc);
+            warn("libusb_submit_transfer failed to submit command: rc=%d", rc);
         break;
 
     case LIBUSB_TRANSFER_NO_DEVICE:
-        fatal("Device removed");
+        warn("Device removed");
+        break;
 
     default:
         debug("unexpected status. endpoint %x, status %x, length %u",
@@ -144,7 +147,7 @@ static void acl_out_callback(struct libusb_transfer *transfer)
 
         int rc = libusb_submit_transfer(transfer);
         if (rc != LIBUSB_SUCCESS)
-            fatal("libusb_submit_transfer failed to submit command: rc=%d", rc);
+            warn("libusb_submit_transfer failed to submit command: rc=%d", rc);
         break;
 
     default:
@@ -163,7 +166,7 @@ void btusb_process()
     memset(&tv, 0, sizeof(struct timeval));
     int rc = libusb_handle_events_timeout_completed(NULL, &tv, NULL);
     if (rc != LIBUSB_SUCCESS)
-        fatal("libusb_handle_events_timeout_completed returned %d", rc);
+        warn("libusb_handle_events_timeout_completed returned %d", rc);
 }
 
 static void initialize_endpoint(struct usb_endpoint *endpoint,
@@ -180,9 +183,9 @@ static void initialize_endpoint(struct usb_endpoint *endpoint,
     uint8_t *buffer = endpoint->buffer_memory;
     for (int i = 0; i < USB_TRANSFERS_PER_ENDPOINT; i++) {
         struct libusb_transfer *transfer = libusb_alloc_transfer(0);
-        if (transfer == NULL)
-            fatal("libusb_alloc_transfer failed");
-
+        if (transfer == NULL) {
+            warn("libusb_alloc_transfer failed");
+        } else {        
         transfer->dev_handle = handle;
         transfer->endpoint = address;
         transfer->type = transfer_type;
@@ -194,6 +197,7 @@ static void initialize_endpoint(struct usb_endpoint *endpoint,
         transfer->callback = callback;
 
         buffer += buffer_size;
+        }
     }
 }
 
@@ -205,7 +209,7 @@ static void submit_free_list(struct usb_endpoint *endpoint)
             return;
         int rc = libusb_submit_transfer(transfer);
         if (rc != LIBUSB_SUCCESS)
-            fatal("Error submitting transfer for endpoint %d: %d", transfer->endpoint, rc);
+            warn("Error submitting transfer for endpoint %d: %d", transfer->endpoint, rc);
     }
 }
 
@@ -213,7 +217,7 @@ void btusb_init(libusb_pollfd_added_cb added_cb, libusb_pollfd_removed_cb remove
 {
     int rc = libusb_init(NULL);
     if (rc < 0)
-        fatal("libusb_init failed %d", rc);
+        warn("libusb_init failed %d", rc);
 
     libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_WARNING);
 
@@ -225,7 +229,7 @@ void btusb_init(libusb_pollfd_added_cb added_cb, libusb_pollfd_removed_cb remove
     libusb_free_pollfds(initial_pollfds);
 
     if (libusb_pollfds_handle_timeouts(NULL) == 0)
-        fatal("Platform missing timerfd support. Need to implement timer handling...");
+        warn("Platform missing timerfd support. Need to implement timer handling...");
 }
 
 int btusb_open(acceptable_device_cb acceptable_device, void *cookie)

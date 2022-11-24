@@ -68,7 +68,7 @@ void report_event(uint8_t packet_type, const uint8_t *buffer, size_t buffer_size
 static void pollfd_added(int fd, short events, void *user_data)
 {
     if (num_pollfds == NUM_POLLFD_ENTRIES)
-        fatal("raise the number of pollfds");
+        warn("raise the number of pollfds");
 
     fdset[num_pollfds].fd = fd;
     fdset[num_pollfds].events = events;
@@ -89,7 +89,7 @@ static void pollfd_removed(int fd, void *user_data)
             return;
         }
     }
-    fatal("pollfd_removed unexpected fd=%d", fd);
+    warn("pollfd_removed unexpected fd=%d", fd);
 }
 
 static void hci_handle_request(const uint8_t *buffer, size_t length, void *cookie)
@@ -103,7 +103,8 @@ static void hci_handle_request(const uint8_t *buffer, size_t length, void *cooki
         btusb_send_acl_packet(&buffer[3], length - 1);
         break;
     default:
-        fatal("hci_handle_request: unexpected packet type %u", buffer[2]);
+        warn("hci_handle_request: unexpected packet type %u", buffer[2]);
+        break;
     }
 }
 
@@ -168,7 +169,7 @@ int main(int argc, char const *argv[])
     btusb_init(pollfd_added, pollfd_removed, NULL);
 
     if (btusb_open(acceptable_device, &ac))
-        fatal("btusb_open failed");
+        warn("btusb_open failed");
 
     for (;;) {
         for (int i = 0; i < num_pollfds; i++)
@@ -182,7 +183,7 @@ int main(int argc, char const *argv[])
             if (errno == EINTR)
                 continue;
 
-            fatal("poll failed with %d", errno);
+            warn("poll failed with %d", errno);
         }
 
         if (fdset[0].revents & (POLLIN | POLLHUP))
